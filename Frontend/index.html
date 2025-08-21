@@ -1,0 +1,2131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Road Wear Prediction Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="wearMetrics.js"></script>  
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #e3e3eee1;
+        }
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            background-color: rgba(19, 17, 17, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        .small-chart-container {
+            position: relative;
+            height: 200px;
+            width: 100%;
+        }
+
+        .alert-item {
+            transition: all 0.3s ease;
+        }
+        
+        .alert-item:hover {
+            transform: translateY(-2px);
+        }
+
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 200px;
+            }
+            .small-chart-container {
+                height: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Spinner -->
+    <div class="loading">
+        <div class="flex flex-col items-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+            <p class="mt-2 text-gray-700">Loading data...</p>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div class="min-h-screen">
+        <!-- Header -->
+        <div id="thresholdMessage" class="hidden mb-4 px-4 py-3 rounded bg-green-50 border border-green-300 text-green-700 text-sm">
+            Threshold updated successfully!
+          </div>
+        
+          <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+                <div class="flex items-center">
+                    <h1 class="text-xl sm:text-2xl font-bold text-gray-900">Road Wear Prediction Dashboard</h1>
+                    <div class="ml-4 flex items-center">
+                        <span class="w-3 h-3 bg-green-500 rounded-full"></span>
+                        <span class="ml-2 text-xs text-gray-600">Data Feed Active</span>
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <div class="text-sm">
+                        <span class="font-medium">Last Updated:</span>
+                        <span id="lastUpdated"></span>
+                    </div>
+                    <!-- Select Route Dropdown -->
+                    <div class="flex items-center space-x-2">
+                        <label for="flyoverSelect" class="text-sm font-medium text-gray-700">Select Route:</label>
+                        <select id="flyoverSelect" aria-label="Select Road Route" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                            <option value="all">All Routes</option>
+                            <option value="route1">Shivajinagar Bus Stand Road</option>
+                            <option value="route2">Old Mumbai-Pune Highway (NH 60)</option>
+                            <option value="route3">Mumbai-Pandharpur Road</option>
+                            <option value="route4">Sangamwadi Bridge</option>
+                            <option value="route5">Sangam Bridge</option>
+                            <option value="route6">RTO Road</option>
+                            <option value="route7">Mumbai-Pandharpur Road (Outbound)</option>
+                            <option value="route8">Old Mumbai-Pune Highway (Outbound)</option>
+                            <option value="route9">Exit Ramp to JM Road</option>
+                            <option value="route10">COEP Road</option>
+                            <option value="route11">Exit Ramp to RTO Road</option>
+                        </select>
+                    </div>
+        
+                    
+
+                </div>
+            </div>
+        </header>
+        
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <!-- Status Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <!-- Wear Status -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium mb-4">Road Wear Status</h3>
+                    <div class="flex items-center space-x-4">
+                        <div id="wearIndicator" class="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center shadow-md">
+                            <i class="bi bi-check-lg text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <span id="wearStatus" class="text-xl font-bold">Safe</span>
+                            <p class="text-sm text-gray-500">Current Wear Index: <span id="wearValue">3.2</span>/10</p>
+                            <p class="text-xs text-gray-400">(Based on 2-month average)</p>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label for="thresholdSlider" class="text-sm text-gray-600 block mb-1">Threshold Setting (0-10):</label>
+                        <input type="range" id="thresholdSlider" class="w-full" min="0" max="10" step="0.5" value="7">
+                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>Safe</span>
+                            <span>Warning</span>
+                            <span>Critical</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weather Info -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium mb-4">Weather Conditions</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-sm text-gray-500">Temperature</span>
+                            <p id="temperature" class="text-lg font-bold">32°C</p>
+                        </div>
+                        <div>
+                            
+                            <span class="text-sm text-gray-500">Humidity</span>
+                            <p id="humidity" class="text-lg font-bold">65%</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-gray-500">Wind Speed</span>
+                            <p id="windSpeed" class="text-lg font-bold">15 km/h</p>
+                        </div>
+                    </div>
+                </div>
+                
+
+                <!-- Traffic Volume -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium mb-4">Traffic Volume</h3>
+                    <div class="text-center">
+                        <span id="trafficValue" class="text-3xl font-bold">1,234</span>
+                        <p class="text-sm text-gray-500">vehicles/min</p>
+                    </div>
+                    <div class="mt-4">
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div id="trafficBar" class="bg-blue-600 h-2.5 rounded-full" style="width: 65%"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>Low</span>
+                            <span>Medium</span>
+                            <span>High</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Wear Prediction Chart -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium mb-4">Road Wear Prediction</h3>
+                    <div class="chart-container">
+                        <canvas id="wearChart"></canvas>
+                    </div>
+                    <div id="metricsOutput" class="mt-4 text-gray-700 text-sm"></div>
+
+                </div>
+
+                <!-- Traffic Composition Chart -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium mb-4">Traffic Composition</h3>
+                    <div class="chart-container">
+                        <canvas id="trafficChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Add Date Picker Here -->
+                    <!-- Date Picker for Today -->
+<div class="flex items-center space-x-2">
+    <label for="datePicker" class="text-sm font-medium text-gray-700">Select Date (Today):</label>
+    <input type="date" id="datePicker" name="datePicker" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+</div>
+
+<!-- Date Picker for Yesterday -->
+<div class="flex items-center space-x-2">
+    <label for="yesterdayPicker" class="text-sm font-medium text-gray-700">Select Date (Yesterday):</label>
+    <input type="date" id="yesterdayPicker" name="yesterdayPicker" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+</div>
+
+<!-- Comparison Section: Display Wear Value for Today vs. Yesterday -->
+<div class="flex items-center">
+    <h4 class="text-lg">Today's Wear Value: <span id="wearValueToday"></span></h4>
+</div>
+<div class="flex items-center">
+    <h4 class="text-lg">Yesterday's Wear Value: <span id="wearValueYesterday"></span></h4>
+</div>
+
+<!-- Comparison Chart (Bar Chart) -->
+<div class="chart-container">
+    <canvas id="wearComparisonChart"></canvas>
+</div>
+            <!-- Map and Road Segments Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <!-- Map View -->
+                <div class="bg-white rounded-lg shadow p-6 lg:col-span-2">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium">Road Segments Map</h3>
+                        <div class="flex items-center space-x-4 text-sm">
+                            <div class="flex items-center">
+                                <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                                <span class="ml-1">Good</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                                <span class="ml-1">Warning</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                                <span class="ml-1">Critical</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rounded-lg bg-gray-100 h-64 md:h-80 overflow-hidden relative">
+                        <div id="mapContainer" class="w-full h-full">
+                            <!-- Map will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Speed Distribution Chart -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium mb-4">Speed Distribution</h3>
+                    <div class="chart-container">
+                        <canvas id="speedChart"></canvas>
+                    </div>
+                    <div class="mt-4 text-sm text-gray-600">
+                        <p>High speeds cause stress cracks; low speeds increase braking impact on wear.</p>
+                    </div>
+                </div>
+            </div>
+            
+
+            <!-- Road Segment Table -->
+            <div class="bg-white rounded-lg shadow mb-8">
+                <div class="p-6">
+                    <h3 class="text-lg font-medium mb-4">Road Segments Status</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Road Segment</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Wear</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Threshold</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Repair</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Next Repair Due</th>
+                                </tr>
+                            </thead>
+                            <tbody id="roadSegmentsTable" class="bg-white divide-y divide-gray-200">
+                                <!-- Table rows will be dynamically added here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Weather Impact and Forecasting Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Weather Impact Chart -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium mb-4">Weather Impact on Road Wear</h3>
+                    <div class="chart-container">
+                        <canvas id="weatherImpactChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Hourly Wear Forecast -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium mb-4">Hourly Wear Forecast</h3>
+                    <div class="chart-container">
+                        <canvas id="hourlyForecastChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <!-- Alerts and Maintenance Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <!-- Active Alerts -->
+                <div class="bg-white rounded-lg shadow p-6 lg:col-span-2">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium">Active Alerts</h3>
+                        <button id="toggleAlertsSound" class="text-sm flex items-center px-2 py-1 rounded bg-gray-100 hover:bg-gray-200">
+                            <i class="bi bi-volume-up mr-1"></i> 
+                            Alerts Sound: On
+                        </button>
+                    </div>
+                    <div id="alertsList" class="space-y-4">
+                        <!-- Alerts will be dynamically added here -->
+                    </div>
+                </div>
+
+                <!-- Maintenance History -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium mb-4">Maintenance History</h3>
+                    <div class="small-chart-container">
+                        <canvas id="maintenanceHistoryChart"></canvas>
+                    </div>
+                    <div class="mt-4 text-center">
+                        <button id="viewMaintenanceDetails" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">
+                            View Detailed History
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- Today's Summary Zone -->
+<div class="bg-white rounded-lg shadow p-6 mb-8">
+    <h3 class="text-lg font-medium mb-4">Today's Summary</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Total Routes Monitored -->
+        <div class="bg-green-100 rounded-lg p-4 flex items-center justify-between">
+            <div class="flex items-center">
+                <i class="bi bi-geo-alt-fill text-3xl text-green-500"></i>
+                <span class="ml-3 text-lg font-medium">Total Routes Monitored</span>
+            </div>
+            <div class="text-2xl font-bold" id="totalRoutes">11</div>
+        </div>
+        <!-- Road Wear Over Time Chart -->
+<div class="bg-white rounded-lg shadow p-6 mb-8">
+  <h3 class="text-lg font-medium mb-4">Road Wear Over Time (Last 2 Months)</h3>
+  <canvas id="roadWearOverTimeChart" height="300"></canvas>
+</div>
+
+<!-- Route Timeline Chart -->
+<div class="bg-white rounded-lg shadow p-6 mb-8">
+  <h3 class="text-lg font-medium mb-4">Route Timeline (Last 2 Months)</h3>
+  <canvas id="routeTimelineChart" height="300"></canvas>
+</div>
+
+<!-- Historical RWI Table -->
+<div class="bg-white rounded-lg shadow p-6 mb-8 overflow-auto">
+  <h3 class="text-lg font-medium mb-4">Historical RWI by Date and Route</h3>
+  <table id="historicalRwiTable" class="min-w-full border border-gray-300 text-sm text-left">
+    <!-- Dynamically filled -->
+  </table>
+</div>
+
+<!-- RWI Intensity Table -->
+<div class="bg-white rounded-lg shadow p-6 mb-8 overflow-auto">
+  <h3 class="text-lg font-medium mb-4">RWI Intensity by Date/Route</h3>
+  <table id="rwiIntensityTable" class="min-w-full border border-gray-300 text-sm text-left">
+    <!-- Dynamically filled -->
+  </table>
+</div>
+
+        <!-- Routes in Danger Zone -->
+        <div class="bg-red-100 rounded-lg p-4 flex items-center justify-between">
+            <div class="flex items-center">
+                <i class="bi bi-exclamation-triangle-fill text-3xl text-red-500"></i>
+                <span class="ml-3 text-lg font-medium">Routes in Danger Zone</span>
+            </div>
+            <div class="text-2xl font-bold text-red-600" id="dangerRoutes">3</div>
+        </div>
+
+        <!-- Average Wear Percentage Today -->
+        <div class="bg-yellow-100 rounded-lg p-4 flex items-center justify-between">
+            <div class="flex items-center">
+                <i class="bi bi-pie-chart-fill text-3xl text-yellow-500"></i>
+                <span class="ml-3 text-lg font-medium">Average Wear % Today</span>
+            </div>
+            <div class="text-2xl font-bold" id="avgWearToday">58.4%</div>
+        </div>
+
+        <!-- Weather Summary -->
+        <div class="bg-blue-100 rounded-lg p-4 flex items-center justify-between">
+            <div class="flex items-center">
+                <i class="bi bi-sun-fill text-3xl text-blue-500"></i>
+                <span class="ml-3 text-lg font-medium">Weather Summary</span>
+            </div>
+            <div class="text-2xl font-bold" id="weatherSummary">34.5°C, 58% humidity</div>
+        </div>
+
+        <!-- Last Updated -->
+        <div class="bg-gray-100 rounded-lg p-4 flex items-center justify-between">
+            <div class="flex items-center">
+                <i class="bi bi-clock-fill text-3xl text-gray-500"></i>
+                <span class="ml-3 text-lg font-medium">Last Updated</span>
+            </div>
+            <div class="text-2xl font-bold" id="lastUpdatedTime">11:45 AM</div>
+        </div>
+    </div>
+</div>
+
+
+
+            <!-- Scenario Forecasting -->
+            <div class="bg-white rounded-lg shadow p-6 mb-8">
+                <h3 class="text-lg font-medium mb-4">Scenario Forecasting</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label for="trafficVolumeSlider" class="block text-sm font-medium text-gray-700 mb-1">Traffic Volume</label>
+                        <input type="range" id="trafficVolumeSlider" class="w-full" min="0" max="100" step="1" value="50">
+                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>Low</span>
+                            <span>Medium</span>
+                            <span>High</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="weatherSeveritySlider" class="block text-sm font-medium text-gray-700 mb-1">Weather Severity</label>
+                        <input type="range" id="weatherSeveritySlider" class="w-full" min="0" max="100" step="1" value="30">
+                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>Clear</span>
+                            <span>Moderate</span>
+                            <span>Severe</span>
+                        </div>
+                    </div>
+                    <div class="flex items-end">
+                        <button id="generateForecastBtn" class="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                            Generate Forecast
+                        </button>
+                    </div>
+                </div>
+                <div id="forecastResult" class="mt-6 p-4 bg-gray-50 rounded-lg hidden">
+                    <div class="text-sm">
+                        <p class="font-medium">Forecast Results:</p>
+                        <div id="forecastDetails" class="mt-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Filter Options -->
+            <div class="bg-white rounded-lg shadow p-6 mb-8">
+                <h3 class="text-lg font-medium mb-4">Data Filters</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label for="timeRangeFilter" class="block text-sm font-medium text-gray-700 mb-1">Time Range</label>
+                        <select id="timeRangeFilter" aria-label="Select Time Range" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+
+                            <option value="24hours">Last 24 Hours</option>
+                            <option value="week">Last Week</option>
+                            <option value="month">Last Month</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="roadTypeFilter" class="block text-sm font-medium text-gray-700 mb-1">Road Type</label>
+                        <select id="roadTypeFilter" aria-label="Select Road Type" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+
+                            <option value="all">All Road Types</option>
+                            <option value="highway">Highway</option>
+                            <option value="flyover">Flyover</option>
+                            <option value="cityRoad">City Road</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="vehicleTypeFilter" class="block text-sm font-medium text-gray-700 mb-1">Vehicle Type</label>
+                        <select id="vehicleTypeFilter" aria-label="Select Vehicle Type" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+
+                            <option value="all">All Vehicles</option>
+                            <option value="cars">Cars</option>
+                            <option value="trucks">Trucks</option>
+                            <option value="buses">Buses</option>
+                            <option value="motorcycles">Motorcycles</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-4 text-right">
+                    <button id="applyFiltersBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                        Apply Filters
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Maintenance History Modal -->
+    <div id="maintenanceModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium">Detailed Maintenance History</h3>
+                    <button id="closeMaintenanceModal" class="text-gray-400 hover:text-gray-500">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Road Segment</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Road Material</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Maintenance Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wear Index Before</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody id="maintenanceHistoryTable" class="bg-white divide-y divide-gray-200">
+                            <!-- Maintenance history will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-6">
+                    <h4 class="text-md font-medium mb-3">Maintenance Trends</h4>
+                    <div class="h-64">
+                        <canvas id="maintenanceTrendsChart"></canvas>
+                    </div>
+                </div>
+                <div class="mt-6 text-right">
+                    <button id="downloadMaintenanceHistory" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 text-sm">
+                        <i class="bi bi-download mr-1"></i> Export Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+
+    <script>
+        // Global variables to hold chart instances and data
+        let wearChart, trafficChart, speedChart, weatherImpactChart, hourlyForecastChart, maintenanceHistoryChart, maintenanceTrendsChart;
+        let threshold = 7.0; // Default threshold
+        let alertSoundEnabled = true;
+        const roadSegments = [
+            { id: 'route1', name: 'Shivajinagar Bus Stand Road', material: 'Asphalt', wear: 6.2, threshold: 7.0, status: 'moderate', lastRepair: '3 months ago', nextRepair: '2 weeks' },
+            { id: 'route2', name: 'Old Mumbai-Pune Highway (NH 60)', material: 'Concrete', wear: 4.8, threshold: 7.0, status: 'safe', lastRepair: '2 months ago', nextRepair: '2 months' },
+            { id: 'route3', name: 'Mumbai-Pandharpur Road', material: 'Asphalt', wear: 7.5, threshold: 7.0, status: 'critical', lastRepair: '1 year ago', nextRepair: 'Immediate' },
+            { id: 'route4', name: 'Sangamwadi Bridge', material: 'Concrete', wear: 5.9, threshold: 7.0, status: 'moderate', lastRepair: '5 months ago', nextRepair: '1 month' },
+            { id: 'route5', name: 'Sangam Bridge (Ground Level)', material: 'Asphalt', wear: 3.8, threshold: 7.0, status: 'safe', lastRepair: '2 months ago', nextRepair: '3 months' },
+            { id: 'route6', name: 'RTO Road', material: 'Concrete', wear: 7.2, threshold: 7.0, status: 'critical', lastRepair: '9 months ago', nextRepair: 'Immediate' },
+            { id: 'route7', name: 'Mumbai-Pandharpur Road (Outbound)', material: 'Asphalt', wear: 5.1, threshold: 7.0, status: 'moderate', lastRepair: '6 months ago', nextRepair: '3 weeks' },
+            { id: 'route8', name: 'Old Mumbai-Pune Highway (Outbound)', material: 'Concrete', wear: 4.2, threshold: 7.0, status: 'safe', lastRepair: '3 months ago', nextRepair: '2 months' },
+            { id: 'route9', name: 'Exit Ramp to JM Road', material: 'Asphalt', wear: 6.8, threshold: 7.0, status: 'moderate', lastRepair: '7 months ago', nextRepair: '2 days' },
+            { id: 'route10', name: 'COEP Road', material: 'Concrete', wear: 3.5, threshold: 7.0, status: 'safe', lastRepair: '1 month ago', nextRepair: '4 months' },
+            { id: 'route11', name: 'Exit Ramp to RTO Road', material: 'Asphalt', wear: 6.9, threshold: 7.0, status: 'moderate', lastRepair: '8 months ago', nextRepair: '1 week' }
+        ];
+
+        const maintenanceHistory = [
+            { road: 'Shivajinagar Bus Stand Road', material: 'Asphalt', date: '2023-09-15', type: 'Resurfacing', wearBefore: 7.8, cost: '₹ 1,250,000' },
+            { road: 'Old Mumbai-Pune Highway (NH 60)', material: 'Concrete', date: '2023-10-20', type: 'Patching', wearBefore: 6.4, cost: '₹ 850,000' },
+            { road: 'Mumbai-Pandharpur Road', material: 'Asphalt', date: '2023-01-05', type: 'Full Repair', wearBefore: 8.9, cost: '₹ 3,200,000' },
+            { road: 'Sangamwadi Bridge', material: 'Concrete', date: '2023-07-10', type: 'Crack Sealing', wearBefore: 6.8, cost: '₹ 750,000' },
+            { road: 'Sangam Bridge (Ground Level)', material: 'Asphalt', date: '2023-10-12', type: 'Patching', wearBefore: 5.9, cost: '₹ 920,000' },
+            { road: 'RTO Road', material: 'Concrete', date: '2023-03-25', type: 'Partial Resurfacing', wearBefore: 7.5, cost: '₹ 1,750,000' },
+            { road: 'Mumbai-Pandharpur Road (Outbound)', material: 'Asphalt', date: '2023-06-05', type: 'Crack Sealing', wearBefore: 6.2, cost: '₹ 680,000' },
+            { road: 'Old Mumbai-Pune Highway (Outbound)', material: 'Concrete', date: '2023-09-01', type: 'Patching', wearBefore: 5.7, cost: '₹ 720,000' },
+            { road: 'Exit Ramp to JM Road', material: 'Asphalt', date: '2023-05-19', type: 'Minor Repairs', wearBefore: 6.0, cost: '₹ 450,000' },
+            { road: 'COEP Road', material: 'Concrete', date: '2023-11-05', type: 'Surface Treatment', wearBefore: 5.2, cost: '₹ 680,000' },
+            { road: 'Exit Ramp to RTO Road', material: 'Asphalt', date: '2023-04-15', type: 'Crack Sealing', wearBefore: 6.5, cost: '₹ 520,000' },
+            { road: 'Shivajinagar Bus Stand Road', material: 'Asphalt', date: '2023-02-10', type: 'Pothole Repair', wearBefore: 6.1, cost: '₹ 320,000' },
+            { road: 'Old Mumbai-Pune Highway (NH 60)', material: 'Concrete', date: '2023-06-18', type: 'Surface Treatment', wearBefore: 5.5, cost: '₹ 950,000' },
+            { road: 'Mumbai-Pandharpur Road', material: 'Asphalt', date: '2022-07-23', type: 'Full Resurfacing', wearBefore: 8.1, cost: '₹ 2,800,000' },
+            { road: 'Sangam Bridge (Ground Level)', material: 'Asphalt', date: '2023-08-05', type: 'Joint Repair', wearBefore: 5.4, cost: '₹ 480,000' }
+        ];
+        
+        // Initialize data and charts when document is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            updateDateTime();
+            initializeCharts();
+            updateRoadSegmentsTable();
+            initializeMap();
+            loadInitialAlerts();
+            populateMaintenanceHistory();
+            startDataSimulation();
+            setupEventListeners();
+        });
+
+        // Add these lines **after** the DOMContentLoaded block:
+function updateWeatherData() {
+  fetch('https://api.openweathermap.org/data/2.5/weather?q=Pune&appid=b4a3ab7fe4148c3aa873158b2014179f&units=metric')
+    .then(response => {
+      if (!response.ok) throw new Error('Weather API error');
+      return response.json();
+    })
+    .then(data => {
+      document.getElementById('temperature').textContent = `${data.main.temp.toFixed(1)}°C`;
+      document.getElementById('humidity').textContent = `${data.main.humidity}%`;
+      document.getElementById('windSpeed').textContent = `${data.wind.speed.toFixed(1)} km/h`;
+    })
+    .catch(error => {
+      console.error('Failed to fetch weather data:', error);
+    });
+}
+
+// Fetch weather immediately on load
+updateWeatherData();
+
+// Update weather every 60 seconds
+setInterval(updateWeatherData, 60000);
+
+        // Update date and time
+        function updateDateTime() {
+            const now = new Date();
+            document.getElementById('lastUpdated').textContent = now.toLocaleString();
+        }
+
+        // Initialize all charts
+        function initializeCharts() {
+            initializeWearChart();
+            initializeTrafficChart();
+            initializeSpeedChart();
+            initializeWeatherImpactChart();
+            initializeHourlyForecastChart();
+            initializeMaintenanceHistoryChart();
+        }
+
+        // Initialize Road Wear Prediction Chart
+        function initializeWearChart() {
+            const wearCtx = document.getElementById('wearChart').getContext('2d');
+            window.wearChart = new Chart(wearCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+                    datasets: [{
+                        label: 'Actual Wear (2-month avg)',
+                        data: Array.from({length: 24}, () => (Math.random() * 6 + 2).toFixed(1)),
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: 'Predicted Wear',
+                        data: Array.from({length: 24}, () => (Math.random() * 8 + 2).toFixed(1)),
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        borderDash: [5, 5],
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function(context) {
+                                    return `Traffic: ${Math.floor(Math.random() * 1000 + 500)} vehicles`;
+                                }
+                            }
+                        },
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 10,
+                            title: {
+                                display: true,
+                                text: 'Wear Index (0-10)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time of Day'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize Traffic Composition Chart
+        function initializeTrafficChart() {
+            const trafficCtx = document.getElementById('trafficChart').getContext('2d');
+            window.trafficChart = new Chart(trafficCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Cars', 'Trucks', 'Buses', 'Motorcycles'],
+                    datasets: [{
+                        data: [65, 15, 10, 10],
+                        backgroundColor: [
+                            'rgb(54, 162, 235)',
+                            'rgb(255, 99, 132)',
+                            'rgb(255, 205, 86)',
+                            'rgb(75, 192, 192)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${context.raw}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize Speed Distribution Chart
+        function initializeSpeedChart() {
+            const speedCtx = document.getElementById('speedChart').getContext('2d');
+            window.speedChart = new Chart(speedCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['0-20', '20-40', '40-60', '60-80', '80+'],
+                    datasets: [{
+                        label: 'Number of Vehicles',
+                        data: [150, 320, 450, 280, 100],
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        borderColor: 'rgb(54, 162, 235)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Vehicles'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Speed Range (km/h)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize Weather Impact Chart
+        function initializeWeatherImpactChart() {
+            const weatherImpactCtx = document.getElementById('weatherImpactChart').getContext('2d');
+            window.weatherImpactChart = new Chart(weatherImpactCtx, {
+                type: 'bar',
+                data: {
+                    labels: [ 'Temperature', 'Humidity', 'Freeze/Thaw'],
+                    datasets: [{
+                        label: 'Impact on Road Wear',
+                        data: [35, 25, 15, 25],
+                        backgroundColor: [
+                            'rgba(54, 162, 235, 0.6)',
+                            'rgba(255, 99, 132, 0.6)',
+                            'rgba(75, 192, 192, 0.6)',
+                            'rgba(255, 205, 86, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgb(54, 162, 235)',
+                            'rgb(255, 99, 132)',
+                            'rgb(75, 192, 192)',
+                            'rgb(255, 205, 86)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 50,
+                            title: {
+                                display: true,
+                                text: 'Impact (%)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Weather Conditions'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize Hourly Forecast Chart 
+        function initializeHourlyForecastChart() {
+            const hourlyForecastCtx = document.getElementById('hourlyForecastChart').getContext('2d');
+            window.hourlyForecastChart = new Chart(hourlyForecastCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+                    datasets: [{
+                        label: 'Forecasted Wear',
+                        data: Array.from({length: 24}, () => (Math.random() * 7 + 2).toFixed(1)),
+                        borderColor: 'rgb(153, 102, 255)',
+                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function(context) {
+                                    return `Traffic: ${Math.floor(Math.random() * 1000 + 500)} vehicles`;
+                                }
+                            }
+                        },
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 10,
+                            title: {
+                                display: true,
+                                text: 'Forecasted Wear Index (0-10)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Hour of Day'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize Maintenance History Chart
+        function initializeMaintenanceHistoryChart() {
+            const maintenanceHistoryCtx = document.getElementById('maintenanceHistoryChart').getContext('2d');
+            window.maintenanceHistoryChart = new Chart(maintenanceHistoryCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Road Wear Index',
+                        data: [4.2, 5.8, 3.5, 6.2, 4.0, 5.5],
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.4,
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Maintenance Events',
+                        type: 'scatter',
+                        data: [
+                            { x: 'Feb', y: 5.8 },
+                            { x: 'Apr', y: 6.2 },
+                            { x: 'Jun', y: 5.5 }
+                        ],
+                        backgroundColor: 'rgb(255, 99, 132)',
+                        pointRadius: 8,
+                        pointHoverRadius: 10,
+                        yAxisID: 'y'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 10,
+                            title: {
+                                display: true,
+                                text: 'Wear Index'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Month'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.dataset.type === 'scatter') {
+                                        return 'Maintenance performed';
+                                    }
+                                    return `Wear Index: ${context.raw}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize Maintenance Trends Chart
+        function initializeMaintenanceTrendsChart() {
+            const maintenanceTrendsCtx = document.getElementById('maintenanceTrendsChart').getContext('2d');
+            window.maintenanceTrendsChart = new Chart(maintenanceTrendsCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                    datasets: [{
+                        label: 'Maintenance Events',
+                        data: [1, 2, 2, 3, 2, 2, 1, 1, 2, 2, 1, 0],
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        borderColor: 'rgb(54, 162, 235)',
+                        borderWidth: 1
+                    }, {
+                        label: 'Average Repair Cost (₹ Lakhs)',
+                        data: [12, 18, 14, 9, 15, 20, 28, 14, 10, 9, 6, 0],
+                        backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                        borderColor: 'rgb(255, 99, 132)',
+                        borderWidth: 1,
+                        type: 'line',
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Events'
+                            }
+                        },
+                        y1: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: {
+                                drawOnChartArea: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Average Cost (₹ Lakhs)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Month'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+ // Helper: Generate last 60 days (ISO date strings)
+  function getLastTwoMonthsDates() {
+    const dates = [];
+    const today = new Date();
+    for (let i = 59; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      dates.push(d.toISOString().slice(0, 10));
+    }
+    return dates;
+  }
+
+  // Simulated Historical RWI Data Generator for 2 months & 3 routes
+  function generateHistoricalRwiData() {
+    const dates = getLastTwoMonthsDates();
+    const routes = ['Route A', 'Route B', 'Route C'];
+    const data = [];
+
+    dates.forEach(date => {
+      routes.forEach(route => {
+        data.push({
+          date,
+          route,
+          rwi: +(Math.random() * 0.7 + 0.3).toFixed(2)
+        });
+      });
+    });
+    return data;
+  }
+
+  // Populate Historical RWI Table
+  function updateHistoricalRwiTable() {
+    const table = document.getElementById('historicalRwiTable');
+    const data = generateHistoricalRwiData();
+
+    // Build table header
+    let html = `<thead>
+      <tr class="bg-gray-100">
+        <th class="border px-2 py-1">Date</th>
+        <th class="border px-2 py-1">Route</th>
+        <th class="border px-2 py-1">RWI</th>
+      </tr>
+    </thead><tbody>`;
+
+    data.forEach(row => {
+      html += `<tr>
+        <td class="border px-2 py-1">${row.date}</td>
+        <td class="border px-2 py-1">${row.route}</td>
+        <td class="border px-2 py-1">${row.rwi}</td>
+      </tr>`;
+    });
+
+    html += `</tbody>`;
+    table.innerHTML = html;
+  }
+
+  // Simulated RWI Intensity Data Generator for last 2 months
+  function generateRwiIntensityData() {
+    const dates = getLastTwoMonthsDates();
+    const data = [];
+
+    dates.forEach(date => {
+      data.push({
+        date,
+        routeA: +(Math.random() * 0.7 + 0.3).toFixed(2),
+        routeB: +(Math.random() * 0.7 + 0.3).toFixed(2),
+        routeC: +(Math.random() * 0.7 + 0.3).toFixed(2),
+      });
+    });
+
+    return data;
+  }
+
+  // Utility: Return color based on RWI value
+  function getColorForRwi(value) {
+    if (value >= 0.7) return '#ef4444';   // Red (critical)
+    if (value >= 0.5) return '#fbbf24';   // Orange (warning)
+    if (value >= 0.3) return '#fde68a';   // Yellow (mild)
+    return '#d1fae5';                     // Green (safe)
+  }
+
+  // Populate RWI Intensity Table with colored cells
+  function updateRwiIntensityTable() {
+    const table = document.getElementById('rwiIntensityTable');
+    const data = generateRwiIntensityData();
+
+    // Build table header
+    let html = `<thead>
+      <tr class="bg-gray-100">
+        <th class="border px-2 py-1">Date</th>
+        <th class="border px-2 py-1">Route A</th>
+        <th class="border px-2 py-1">Route B</th>
+        <th class="border px-2 py-1">Route C</th>
+      </tr>
+    </thead><tbody>`;
+
+    data.forEach(row => {
+      html += `<tr>
+        <td class="border px-2 py-1">${row.date}</td>
+        <td class="border px-2 py-1" style="background-color:${getColorForRwi(row.routeA)}">${row.routeA}</td>
+        <td class="border px-2 py-1" style="background-color:${getColorForRwi(row.routeB)}">${row.routeB}</td>
+        <td class="border px-2 py-1" style="background-color:${getColorForRwi(row.routeC)}">${row.routeC}</td>
+      </tr>`;
+    });
+
+    html += `</tbody>`;
+    table.innerHTML = html;
+  }
+
+  // The Road Wear Over Time Chart and Route Timeline Chart
+  // (same functions from previous snippet for brevity)
+
+  function generateWearDataForLastTwoMonths() {
+    const dates = getLastTwoMonthsDates();
+    return dates.map(date => ({
+      date,
+      wear: +(Math.random() * 0.7 + 0.3).toFixed(2)
+    }));
+  }
+
+  function initializeRoadWearOverTimeChart() {
+    const wearData = generateWearDataForLastTwoMonths();
+    const ctx = document.getElementById('roadWearOverTimeChart').getContext('2d');
+    window.roadWearOverTimeChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: wearData.map(d => d.date),
+        datasets: [{
+          label: 'Road Wear',
+          data: wearData.map(d => d.wear),
+          borderColor: 'rgb(54, 162, 235)',
+          backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          fill: true,
+          tension: 0.3,
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true, max: 1, title: { display: true, text: 'Wear' } },
+          x: { title: { display: true, text: 'Date' }, ticks: { maxTicksLimit: 10 } }
+        }
+      }
+    });
+  }
+
+  function generateRouteTimelineData() {
+    const dates = getLastTwoMonthsDates();
+    const routes = ['Route A', 'Route B', 'Route C'];
+
+    const datasets = routes.map((route, idx) => ({
+      label: route,
+      data: dates.map(() => +(Math.random() * 0.7 + 0.3).toFixed(2)),
+      borderColor: idx === 0 ? 'rgb(54, 162, 235)' : (idx === 1 ? 'rgb(75, 192, 192)' : 'rgb(255, 159, 64)'),
+      fill: false,
+      tension: 0.3,
+    }));
+
+    return { dates, datasets };
+  }
+
+  function initializeRouteTimelineChart() {
+    const { dates, datasets } = generateRouteTimelineData();
+    const ctx = document.getElementById('routeTimelineChart').getContext('2d');
+    window.routeTimelineChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: dates,
+        datasets: datasets,
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: { beginAtZero: true, max: 1, title: { display: true, text: 'Wear' } },
+          x: { title: { display: true, text: 'Date' }, ticks: { maxTicksLimit: 10 } }
+        }
+      }
+    });
+  }
+
+  // Initialization on page load
+  window.addEventListener('DOMContentLoaded', () => {
+    initializeRoadWearOverTimeChart();
+    initializeRouteTimelineChart();
+    updateHistoricalRwiTable();
+    updateRwiIntensityTable();
+
+    // Update the tables and charts every minute (simulate sliding window)
+    setInterval(() => {
+      updateHistoricalRwiTable();
+      updateRwiIntensityTable();
+      // You can also update chart data here if you want dynamic charts
+    }, 60000);
+  });
+        // Update Road Segments Table
+        function updateRoadSegmentsTable() {
+            const tableBody = document.getElementById('roadSegmentsTable');
+            tableBody.innerHTML = '';
+            
+            roadSegments.forEach(segment => {
+                const tr = document.createElement('tr');
+                
+                // Status color and icon
+                let statusClass = 'bg-green-100 text-green-800';
+                let statusIcon = 'bi-check-circle';
+                
+                if (segment.status === 'moderate') {
+                    statusClass = 'bg-yellow-100 text-yellow-800';
+                    statusIcon = 'bi-exclamation-circle';
+                } else if (segment.status === 'critical') {
+                    statusClass = 'bg-red-100 text-red-800';
+                    statusIcon = 'bi-exclamation-triangle';
+                }
+                
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${segment.name} <span class="text-xs text-gray-500">(${segment.material})</span></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${
+    segment.wear >= segment.threshold ? 'text-red-600' : 'text-green-600'
+}">${segment.wear.toFixed(1)}</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${
+    segment.threshold >= 7 ? 'text-blue-600' : 'text-yellow-600'
+}">${segment.threshold.toFixed(1)}</td>
+
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}">
+                            <i class="bi ${statusIcon} mr-1"></i> ${segment.status.charAt(0).toUpperCase() + segment.status.slice(1)}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${segment.lastRepair}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 ${segment.nextRepair === 'Immediate' ? 'font-bold text-red-600' : ''}">${segment.nextRepair}</td>
+                `;
+                
+                tableBody.appendChild(tr);
+            });
+        }
+
+        function initializeMap() {
+  const mapContainer = document.getElementById('mapContainer');
+  mapContainer.innerHTML = `
+    <div class="flex items-center justify-center h-full">
+      <div class="relative w-full max-w-md">
+        <svg viewBox="0 0 500 300" class="w-full">
+          <!-- Route 1 -->
+          <path d="M 50,50 L 200,50" stroke="#fbbf24" stroke-width="8" stroke-linecap="round"/>
+          <text x="125" y="35" text-anchor="middle" style="font-size:11px">Shivajinagar Bus Stand Road (Asphalt)</text>
+
+          <!-- Route 2 -->
+          <path d="M 200,50 L 350,50" stroke="#4ade80" stroke-width="8" stroke-linecap="round"/>
+          <text x="275" y="55" text-anchor="middle" style="font-size:11px">Old Mumbai-Pune Highway (Concrete)</text>
+
+          <!-- Route 3 -->
+          <path d="M 350,50 L 450,50" stroke="#ef4444" stroke-width="8" stroke-linecap="round"/>
+          <text x="400" y="35" text-anchor="middle" style="font-size:11px">Mumbai-Pandharpur Road (Asphalt)</text>
+
+          <!-- Route 4 -->
+          <path d="M 200,50 L 200,150" stroke="#fbbf24" stroke-width="8" stroke-linecap="round"/>
+          <text x="210" y="95" text-anchor="start" style="font-size:11px">Sangamwadi Bridge (Concrete)</text>
+
+          <!-- Route 5 -->
+          <path d="M 200,150 L 350,150" stroke="#4ade80" stroke-width="8" stroke-linecap="round"/>
+          <text x="275" y="140" text-anchor="middle" style="font-size:11px">Sangam Bridge (Asphalt)</text>
+
+          <!-- Route 6 -->
+          <path d="M 350,150 L 350,250" stroke="#ef4444" stroke-width="8" stroke-linecap="round"/>
+          <text x="360" y="200" text-anchor="start" style="font-size:11px">RTO Road (Concrete)</text>
+
+          <!-- Route 7 -->
+          <path d="M 450,50 L 450,150" stroke="#fbbf24" stroke-width="8" stroke-linecap="round"/>
+          <text x="460" y="100" text-anchor="start" style="font-size:11px">Mumbai-Pandharpur (Asphalt)</text>
+
+          <!-- Route 8 -->
+          <path d="M 350,50 L 350,120" stroke="#4ade80" stroke-width="8" stroke-linecap="round"/>
+          <text x="330" y="85" text-anchor="end" style="font-size:11px">Old Mumbai-Pune (Concrete)</text>
+
+          <!-- Route 9 -->
+          <path d="M 350,120 L 275,120" stroke="#fbbf24" stroke-width="8" stroke-linecap="round"/>
+          <text x="310" y="110" text-anchor="middle" style="font-size:11px">JM Road Exit (Asphalt)</text>
+
+          <!-- Route 10 -->
+          <path d="M 200,150 L 200,250" stroke="#4ade80" stroke-width="8" stroke-linecap="round"/>
+          <text x="180" y="200" text-anchor="end" style="font-size:11px">COEP Road (Concrete)</text>
+
+          <!-- Route 11 -->
+          <path d="M 350,150 L 450,150" stroke="#fbbf24" stroke-width="8" stroke-linecap="round"/>
+          <text x="400" y="165" text-anchor="middle" style="font-size:11px">RTO Road Exit (Asphalt)</text>
+
+          <!-- Intersections -->
+          <circle cx="200" cy="50" r="8" fill="#1e40af"/>
+          <circle cx="350" cy="50" r="8" fill="#1e40af"/>
+          <circle cx="450" cy="50" r="8" fill="#1e40af"/>
+          <circle cx="200" cy="150" r="8" fill="#1e40af"/>
+          <circle cx="350" cy="150" r="8" fill="#1e40af"/>
+          <circle cx="350" cy="120" r="8" fill="#1e40af"/>
+          <circle cx="450" cy="150" r="8" fill="#1e40af"/>
+        </svg>
+      </div>
+    </div>
+  `;
+}
+
+
+        // Populate maintenance history table
+        function populateMaintenanceHistory() {
+            const historyTable = document.getElementById('maintenanceHistoryTable');
+            if (!historyTable) return;
+            
+            historyTable.innerHTML = '';
+            
+            maintenanceHistory.forEach(record => {
+                const tr = document.createElement('tr');
+                
+                const formattedDate = new Date(record.date).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+                
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${record.road}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.material}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formattedDate}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.type}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.wearBefore}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.cost}</td>
+                `;
+                
+                historyTable.appendChild(tr);
+            });
+        }
+
+        // Load initial alerts
+        function loadInitialAlerts() {
+            const alerts = [
+                { type: 'critical', message: 'Mumbai-Pandharpur Road exceeding wear threshold consistently for 2 months! Schedule immediate repair.', time: '12 mins ago' },
+                { type: 'warning', message: 'Heavy traffic detected on Sangamwadi Bridge. Increased wear rate expected over the next week due to high traffic volume.', time: '35 mins ago' },
+                { type: 'info', message: 'Maintenance scheduled for Old Mumbai-Pune Highway next Monday.', time: '1 hour ago' }
+            ];
+
+            updateAlertsDisplay(alerts);
+        }
+
+        // Update alerts display
+        function updateAlertsDisplay(alerts) {
+            const alertsList = document.getElementById('alertsList');
+            alertsList.innerHTML = alerts.map(alert => {
+                let alertClass = 'bg-blue-50 border-blue-300';
+                let iconClass = 'bi-info-circle-fill text-blue-500';
+                
+                if (alert.type === 'warning') {
+                    alertClass = 'bg-yellow-50 border-yellow-300';
+                    iconClass = 'bi-exclamation-circle-fill text-yellow-500';
+                } else if (alert.type === 'critical') {
+                    alertClass = 'bg-red-50 border-red-300';
+                    iconClass = 'bi-exclamation-triangle-fill text-red-500';
+                    
+                    // Add animation for critical alerts
+                    alertClass += ' pulse-animation';
+                }
+                
+                return `
+                    <div class="alert-item border-l-4 ${alertClass} p-4 rounded shadow-sm">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="bi ${iconClass} text-xl"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium">${alert.message}</p>
+                                <p class="text-xs text-gray-500 mt-1">${alert.time}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Simulated data for demonstration
+const totalRoutes = 11;
+const routesInDanger = 3;
+const avgWearToday = 58.4; // Example percentage
+const avgWearYesterday = 55.0; // Example percentage
+const weatherTemp = 34.5; // Example temperature in °C
+const weatherHumidity = 58; // Example humidity in %
+const lastUpdatedTime = new Date().toLocaleTimeString();
+
+// Function to update today's summary
+function updateTodaysSummary() {
+    // Total Routes Monitored
+    document.getElementById('totalRoutes').textContent = totalRoutes;
+
+    // Routes in Danger Zone
+    document.getElementById('dangerRoutes').textContent = routesInDanger;
+
+    // Average Wear % Today with comparison
+document.getElementById('avgWearToday').textContent = `${avgWearToday.toFixed(1)}%`;
+const avgWearArrow = (avgWearToday > avgWearYesterday) ? '⬆' : (avgWearToday < avgWearYesterday) ? '⬇' : '';
+document.getElementById('avgWearToday').innerHTML = `${avgWearToday.toFixed(1)}% ${avgWearArrow}`;
+
+// Weather Summary - initial static setup (optional, can keep or remove)
+document.getElementById('weatherSummary').textContent = `${weatherTemp.toFixed(1)}°C, ${weatherHumidity}% humidity`;
+
+// Function to update weather summary dynamically from API
+function updateWeatherSummaryFromAPI() {
+  fetch('https://api.openweathermap.org/data/2.5/weather?q=Pune&appid=b4a3ab7fe4148c3aa873158b2014179f&units=metric')
+    .then(response => response.json())
+    .then(data => {
+      const temp = data.main.temp.toFixed(1);
+      const humidity = data.main.humidity;
+      document.getElementById('weatherSummary').textContent = `${temp}°C, ${humidity}% humidity`;
+    })
+    .catch(err => {
+      console.error('Weather API error:', err);
+    });
+}
+
+// Call it once on load
+updateWeatherSummaryFromAPI();
+
+// Update every 60 seconds
+setInterval(updateWeatherSummaryFromAPI, 60000);
+
+
+    // Last Updated
+    document.getElementById('lastUpdatedTime').textContent = lastUpdatedTime;
+}
+
+// Call this function to initially populate the summary zone
+updateTodaysSummary();
+
+// Simulate real-time data updates
+function startDataSimulation() {
+    // Update data every 30 seconds
+    setInterval(() => {
+        updateCharts();
+        updateStatus();
+        updateDateTime();
+
+        // Update the summary as well
+        updateTodaysSummary();  // Call to update today's summary in each interval
+
+    }, 30000); // Update every 30 seconds for more realistic behavior
+
+    // Add new alerts occasionally (less frequently)
+    setInterval(() => {
+        addRandomAlert();
+    }, 60000); // Every 60 seconds for more realistic alert frequency
+}
+
+// Call the function to start the data simulation
+startDataSimulation();
+
+// Simulated Historical Data for Daily RWI over time (e.g., for a specific route)
+const rwiHistory = [
+    { date: '2025-04-01', rwi: 4.5 },
+    { date: '2025-04-02', rwi: 4.6 },
+    { date: '2025-04-03', rwi: 4.8 },
+    { date: '2025-04-04', rwi: 5.0 },
+    { date: '2025-04-05', rwi: 5.1 },
+    { date: '2025-04-06', rwi: 4.7 },
+    { date: '2025-04-07', rwi: 4.9 },
+    // Add more data as necessary
+];
+
+// Function to update the RWI chart based on selected date
+function updateRWIChart(selectedDate) {
+    // Filter the data based on the selected date
+    const selectedData = rwiHistory.filter(item => item.date === selectedDate);
+
+    // Update the RWI chart
+    const rwiChartCtx = document.getElementById('rwiChart').getContext('2d');
+    new Chart(rwiChartCtx, {
+        type: 'line',
+        data: {
+            labels: selectedData.map(item => item.date),
+            datasets: [{
+                label: 'RWI Over Time',
+                data: selectedData.map(item => item.rwi),
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        afterLabel: function(context) {
+                            return `Traffic: ${Math.floor(Math.random() * 1000 + 500)} vehicles`; // Simulate traffic data
+                        }
+                    }
+                },
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 10,
+                    title: {
+                        display: true,
+                        text: 'RWI'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Simulated data for Weather vs RWI (Rainfall data and corresponding RWI)
+const weatherData = [
+    { date: '2025-04-01', rainfall: 12, rwi: 4.5 },
+    { date: '2025-04-02', rainfall: 5, rwi: 4.6 },
+    { date: '2025-04-03', rainfall: 0, rwi: 4.8 },
+    { date: '2025-04-04', rainfall: 10, rwi: 5.0 },
+    { date: '2025-04-05', rainfall: 15, rwi: 5.1 },
+    { date: '2025-04-06', rainfall: 20, rwi: 4.7 },
+    { date: '2025-04-07', rainfall: 5, rwi: 4.9 },
+];
+
+// Function to plot Weather vs RWI
+function plotWeatherVsRWI(selectedDate) {
+    // Filter data for the selected date
+    const selectedWeatherData = weatherData.filter(item => item.date === selectedDate);
+
+    const weatherVsRWIChartCtx = document.getElementById('weatherVsRWIChart').getContext('2d');
+    new Chart(weatherVsRWIChartCtx, {
+        type: 'bar',
+        data: {
+            labels: selectedWeatherData.map(item => item.date),
+            datasets: [{
+                label: 'Rainfall (mm)',
+                data: selectedWeatherData.map(item => item.rainfall),
+                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                borderColor: 'rgb(54, 162, 235)',
+                borderWidth: 1
+            }, {
+                label: 'RWI',
+                data: selectedWeatherData.map(item => item.rwi),
+                backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                borderColor: 'rgb(255, 99, 132)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Value'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Simulated historical data for route-wise RWI
+const routeHistory = [
+    { route: 'Route 1', date: '2025-04-01', rwi: 4.5 },
+    { route: 'Route 1', date: '2025-04-02', rwi: 4.6 },
+    { route: 'Route 2', date: '2025-04-01', rwi: 5.0 },
+    { route: 'Route 2', date: '2025-04-02', rwi: 5.2 },
+];
+
+// Function to update the route history table
+function updateRouteHistoryTable(selectedDate) {
+    const filteredHistory = routeHistory.filter(item => item.date === selectedDate);
+
+    const tableBody = document.getElementById('routeHistoryTableBody');
+    tableBody.innerHTML = '';
+
+    filteredHistory.forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="px-6 py-4 text-sm text-gray-900">${item.route}</td>
+            <td class="px-6 py-4 text-sm text-gray-500">${item.rwi}</td>
+            <td class="px-6 py-4 text-sm text-gray-500">${item.date}</td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+
+        // Update charts with new data
+        function updateCharts() {
+            // Update wear chart
+            const newWearData = Array.from({length: 24}, () => (Math.random() * 6 + 2).toFixed(1));
+            const newPredictedData = Array.from({length: 24}, () => (Math.random() * 8 + 1).toFixed(1));
+            
+            window.wearChart.data.datasets[0].data = newWearData;
+            window.wearChart.data.datasets[1].data = newPredictedData;
+            window.wearChart.update();
+            calculateMetrics();
+
+
+            // Update traffic composition
+            const newTrafficData = [
+                Math.floor(Math.random() * 40 + 40), // Cars
+                Math.floor(Math.random() * 15 + 5),  // Trucks
+                Math.floor(Math.random() * 10 + 5),  // Buses
+                Math.floor(Math.random() * 10 + 5)   // Motorcycles
+            ];
+            window.trafficChart.data.datasets[0].data = newTrafficData;
+            window.trafficChart.update();
+            
+            // Update speed distribution
+            const newSpeedData = [
+                Math.floor(Math.random() * 100 + 100), // 0-20 km/h
+                Math.floor(Math.random() * 200 + 200), // 20-40 km/h
+                Math.floor(Math.random() * 300 + 300), // 40-60 km/h
+                Math.floor(Math.random() * 200 + 100), // 60-80 km/h
+                Math.floor(Math.random() * 100 + 50)   // 80+ km/h
+            ];
+            window.speedChart.data.datasets[0].data = newSpeedData;
+            window.speedChart.update();
+            
+            // Update hourly forecast
+            const newForecastData = Array.from({length: 24}, () => (Math.random() * 7 + 2).toFixed(1));
+            window.hourlyForecastChart.data.datasets[0].data = newForecastData;
+            window.hourlyForecastChart.update();
+            
+            // Update weather impact (less frequently)
+            if (Math.random() > 0.7) {
+                const newWeatherImpactData = [
+                    
+                    Math.floor(Math.random() * 15 + 20), // Temperature
+                    Math.floor(Math.random() * 10 + 10), // Humidity
+                    Math.floor(Math.random() * 15 + 20)  // Freeze/Thaw
+                ];
+                window.weatherImpactChart.data.datasets[0].data = newWeatherImpactData;
+                window.weatherImpactChart.update();
+            }
+        }
+
+        // Update status indicators
+        function updateStatus() {
+            // More stable wear values (changes less dramatically)
+            const currentWear = parseFloat(document.getElementById('wearValue').textContent);
+            // Small random adjustment to simulate 2-month average (more stable)
+            const wearAdjustment = (Math.random() - 0.5) * 0.3;
+            const newWearValue = Math.max(1, Math.min(10, currentWear + wearAdjustment)).toFixed(1);
+            
+            const wearIndicator = document.getElementById('wearIndicator');
+            const wearStatus = document.getElementById('wearStatus');
+            const wearValueEl = document.getElementById('wearValue');
+            
+            wearValueEl.textContent = newWearValue;
+
+            if (newWearValue < 5) {
+                wearIndicator.className = 'w-10 h-10 rounded-full bg-green-500 flex items-center justify-center shadow-md';
+                wearIndicator.innerHTML = '<i class="bi bi-check-lg text-white text-xl"></i>';
+                wearStatus.textContent = 'Safe';
+            } else if (newWearValue < threshold) {
+                wearIndicator.className = 'w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center shadow-md';
+                wearIndicator.innerHTML = '<i class="bi bi-exclamation text-white text-xl"></i>';
+                wearStatus.textContent = 'Warning';
+            } else {
+                wearIndicator.className = 'w-10 h-10 rounded-full bg-red-500 flex items-center justify-center shadow-md';
+                wearIndicator.innerHTML = '<i class="bi bi-exclamation-triangle text-white text-xl"></i>';
+                wearStatus.textContent = 'Critical';
+            }
+
+            // Update traffic value
+            const trafficVolume = Math.floor(Math.random() * 2000 + 1000);
+            document.getElementById('trafficValue').textContent = trafficVolume.toLocaleString();
+            
+            // Update traffic bar
+            const trafficPercentage = Math.min(100, Math.floor(trafficVolume / 30));
+            document.getElementById('trafficBar').style.width = `${trafficPercentage}%`;
+
+            // Update weather conditions (more seasonally appropriate)
+            const currentDate = new Date();
+            const month = currentDate.getMonth(); // 0-11 (Jan-Dec)
+            
+            // Adjust temperature based on month (northern hemisphere seasons)
+            let tempMin, tempMax, rainChance, rainMax, humidityBase;
+            
+            if (month >= 2 && month <= 4) { // Spring (Mar-May)
+                tempMin = 15; tempMax = 28;
+                rainChance = 0.4; rainMax = 15;
+                humidityBase = 60;
+            } else if (month >= 5 && month <= 7) { // Summer (Jun-Aug)
+                tempMin = 25; tempMax = 38;
+                rainChance = 0.2; rainMax = 8;
+                humidityBase = 55;
+            } else if (month >= 8 && month <= 10) { // Fall (Sep-Nov)
+                tempMin = 15; tempMax = 25;
+                rainChance = 0.5; rainMax = 20;
+                humidityBase = 65;
+            } else { // Winter (Dec-Feb)
+                tempMin = 5; tempMax = 15;
+                rainChance = 0.6; rainMax = 25;
+                humidityBase = 75;
+            }
+            
+            const temperature = Math.floor(Math.random() * (tempMax - tempMin) + tempMin);
+            document.getElementById('temperature').textContent = `${temperature}°C`;
+            
+            
+            
+            // Humidity varies by season and has some correlation with rainfall
+            const humidityVariation = 15;
+            const rainfall_effect = hasRain ? Math.floor(rainfall / 2) : 0;
+            const humidity = Math.min(95, Math.floor(humidityBase + (Math.random() * humidityVariation) + rainfall_effect));
+            document.getElementById('humidity').textContent = `${humidity}%`;
+            
+            // Wind speed is more variable but generally higher in transitional seasons
+            let windBase = 5;
+            if (month === 2 || month === 3 || month === 9 || month === 10) {
+                windBase = 10; // Windier in spring and fall
+            }
+            document.getElementById('windSpeed').textContent = `${Math.floor(Math.random() * 15 + windBase)} km/h`;
+            
+            // Update road segments occasionally but with less dramatic changes
+            if (Math.random() > 0.7) {
+                roadSegments.forEach(segment => {
+                    // Smaller random adjustment to wear index for more stability
+                    segment.wear += (Math.random() - 0.4) * 0.2;
+                    segment.wear = Math.max(1, Math.min(10, segment.wear));
+                    
+                    // Update segment status based on wear
+                    if (segment.wear < 5) {
+                        segment.status = 'safe';
+                    } else if (segment.wear < segment.threshold) {
+                        segment.status = 'moderate';
+                    } else {
+                        segment.status = 'critical';
+                    }
+                });
+                
+                // Update table with new values
+                updateRoadSegmentsTable();
+            }
+        }
+
+        // Add a random alert
+        function addRandomAlert() {
+            // Only 20% chance of a new alert to reduce frequency
+            if (Math.random() > 0.2) return;
+            
+            const alerts = [
+                { type: 'info', message: 'Traffic volume increased by 15% on Shivajinagar Bus Stand Road over the past week.' },
+                { type: 'warning', message: 'Weather forecast predicts high humidity and moderate temperature. Expect increased wear on Mumbai-Pune Highway sections due to these conditions.' },
+                { type: 'critical', message: 'RTO Road wear index consistently above threshold for 8 weeks! Immediate inspection required.' },
+                { type: 'info', message: 'Maintenance team dispatched to Mumbai-Pandharpur Road. Expect completion in 3 days.' },
+                { type: 'warning', message: 'Sangamwadi Bridge approaching wear threshold. Monitoring closely with increased frequency.' }
+            ];
+            
+            const randomAlert = alerts[Math.floor(Math.random() * alerts.length)];
+            randomAlert.time = 'Just now';
+            
+            const alertsList = document.getElementById('alertsList');
+            const alertNodes = alertsList.childNodes;
+            
+            // Create new alert element
+            let alertClass = 'bg-blue-50 border-blue-300';
+            let iconClass = 'bi-info-circle-fill text-blue-500';
+            
+            if (randomAlert.type === 'warning') {
+                alertClass = 'bg-yellow-50 border-yellow-300';
+                iconClass = 'bi-exclamation-circle-fill text-yellow-500';
+            } else if (randomAlert.type === 'critical') {
+                alertClass = 'bg-red-50 border-red-300';
+                iconClass = 'bi-exclamation-triangle-fill text-red-500';
+                alertClass += ' pulse-animation';
+                
+                // Play alert sound if enabled and alert is critical
+                if (alertSoundEnabled) {
+                    playAlertSound();
+                }
+            }
+            
+            const newAlertElement = document.createElement('div');
+            newAlertElement.className = `alert-item border-l-4 ${alertClass} p-4 rounded shadow-sm`;
+            newAlertElement.innerHTML = `
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="bi ${iconClass} text-xl"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium">${randomAlert.message}</p>
+                        <p class="text-xs text-gray-500 mt-1">${randomAlert.time}</p>
+                    </div>
+                </div>
+            `;
+            
+            // Add to top of list with fade in
+            newAlertElement.style.opacity = '0';
+            if (alertNodes.length) {
+                alertsList.insertBefore(newAlertElement, alertNodes[0]);
+            } else {
+                alertsList.appendChild(newAlertElement);
+            }
+            
+            // Fade in
+            setTimeout(() => {
+                newAlertElement.style.transition = 'opacity 0.5s ease';
+                newAlertElement.style.opacity = '1';
+            }, 10);
+            
+            // Remove old alerts if too many
+            if (alertNodes.length > 5) {
+                alertsList.removeChild(alertNodes[alertNodes.length - 1]);
+            }
+        }
+
+        // Play alert sound
+        function playAlertSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.value = 780;
+            gainNode.gain.value = 0.2;
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start();
+            
+            // Beep for 0.2 seconds
+            setTimeout(() => {
+                oscillator.stop();
+            }, 200);
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Route/Flyover selection
+            document.getElementById('flyoverSelect').addEventListener('change', (e) => {
+                // Simulate loading state
+                document.querySelector('.loading').style.display = 'flex';
+                
+                setTimeout(() => {
+                    const selectedRoute = e.target.value;
+                    
+                    if (selectedRoute !== 'all') {
+                        // Filter data for the selected route
+                        const selectedSegment = roadSegments.find(segment => segment.id === selectedRoute);
+                        if (selectedSegment) {
+                            // Update wear status for the selected segment
+                            const wearValue = selectedSegment.wear.toFixed(1);
+                            document.getElementById('wearValue').textContent = wearValue;
+                            
+                            if (wearValue < 5) {
+                                document.getElementById('wearIndicator').className = 'w-10 h-10 rounded-full bg-green-500 flex items-center justify-center shadow-md';
+                                document.getElementById('wearIndicator').innerHTML = '<i class="bi bi-check-lg text-white text-xl"></i>';
+                                document.getElementById('wearStatus').textContent = 'Safe';
+                            } else if (wearValue < threshold) {
+                                document.getElementById('wearIndicator').className = 'w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center shadow-md';
+                                document.getElementById('wearIndicator').innerHTML = '<i class="bi bi-exclamation text-white text-xl"></i>';
+                                document.getElementById('wearStatus').textContent = 'Warning';
+                            } else {
+                                document.getElementById('wearIndicator').className = 'w-10 h-10 rounded-full bg-red-500 flex items-center justify-center shadow-md';
+                                document.getElementById('wearIndicator').innerHTML = '<i class="bi bi-exclamation-triangle text-white text-xl"></i>';
+                                document.getElementById('wearStatus').textContent = 'Critical';
+                            }
+                        }
+                    } else {
+                        // Reset to general data
+                        updateStatus();
+                    }
+                    
+                    updateCharts();
+                    document.querySelector('.loading').style.display = 'none';
+                }, 1000);
+            });
+
+            // Threshold Slider
+            document.getElementById('thresholdSlider').addEventListener('input', (e) => {
+    threshold = parseFloat(e.target.value);
+
+    // Update threshold value for all road segments
+    roadSegments.forEach(segment => {
+        segment.threshold = threshold;
+    });
+
+    // Show success message
+    const message = document.getElementById('thresholdMessage');
+    message.classList.remove('hidden');
+
+    // Hide message after 2.5 seconds
+    setTimeout(() => {
+        message.classList.add('hidden');
+    }, 2500);
+
+    // Update Road Wear status indicator
+    const wearValue = parseFloat(document.getElementById('wearValue').textContent);
+
+    if (wearValue < 5) {
+        document.getElementById('wearIndicator').className = 'w-10 h-10 rounded-full bg-green-500 flex items-center justify-center shadow-md';
+        document.getElementById('wearIndicator').innerHTML = '<i class="bi bi-check-lg text-white text-xl"></i>';
+        document.getElementById('wearStatus').textContent = 'Safe';
+    } else if (wearValue < threshold) {
+        document.getElementById('wearIndicator').className = 'w-10 h-10 rounded-full bg-yellow-500 flex items-center justify-center shadow-md';
+        document.getElementById('wearIndicator').innerHTML = '<i class="bi bi-exclamation text-white text-xl"></i>';
+        document.getElementById('wearStatus').textContent = 'Warning';
+    } else {
+        document.getElementById('wearIndicator').className = 'w-10 h-10 rounded-full bg-red-500 flex items-center justify-center shadow-md';
+        document.getElementById('wearIndicator').innerHTML = '<i class="bi bi-exclamation-triangle text-white text-xl"></i>';
+        document.getElementById('wearStatus').textContent = 'Critical';
+    }
+
+    // Refresh Road Segments Table
+    updateRoadSegmentsTable();
+});
+
+
+            // Alerts Sound Toggle
+            document.getElementById('toggleAlertsSound').addEventListener('click', () => {
+                alertSoundEnabled = !alertSoundEnabled;
+                document.getElementById('toggleAlertsSound').innerHTML = alertSoundEnabled ? 
+                    '<i class="bi bi-volume-up mr-1"></i> Alerts Sound: On' : 
+                    '<i class="bi bi-volume-mute mr-1"></i> Alerts Sound: Off';
+            });
+
+            // View Maintenance Details button
+            document.getElementById('viewMaintenanceDetails').addEventListener('click', () => {
+                document.querySelector('.loading').style.display = 'flex';
+                
+                setTimeout(() => {
+                    document.querySelector('.loading').style.display = 'none';
+                    
+                    // Show the maintenance history modal
+                    const modal = document.getElementById('maintenanceModal');
+                    modal.classList.remove('hidden');
+                    
+                    // Initialize the maintenance trends chart if not already done
+                    if (!window.maintenanceTrendsChart) {
+                        initializeMaintenanceTrendsChart();
+                    }
+                    
+                    // Populate the maintenance history table
+                    populateMaintenanceHistory();
+                }, 500);
+            });
+            
+            // Close Maintenance Modal
+            document.getElementById('closeMaintenanceModal').addEventListener('click', () => {
+                document.getElementById('maintenanceModal').classList.add('hidden');
+            });
+            
+            // Download Maintenance History
+            document.getElementById('downloadMaintenanceHistory').addEventListener('click', () => {
+                alert('Maintenance history would be exported as CSV here');
+            });
+
+            // Generate Forecast button
+            document.getElementById('generateForecastBtn').addEventListener('click', () => {
+                document.querySelector('.loading').style.display = 'flex';
+                
+                setTimeout(() => {
+                    const trafficVolume = parseInt(document.getElementById('trafficVolumeSlider').value);
+                    const weatherSeverity = parseInt(document.getElementById('weatherSeveritySlider').value);
+                    
+                    // Generate forecast results based on sliders
+                    const forecastResult = document.getElementById('forecastResult');
+                    const forecastDetails = document.getElementById('forecastDetails');
+                    
+                    // Calculate predicted wear based on traffic and weather
+                    const trafficImpact = trafficVolume / 20; // 0-5 scale
+                    const weatherImpact = weatherSeverity / 25; // 0-4 scale
+                    const predictedWear = (trafficImpact + weatherImpact).toFixed(1);
+                    
+                    let severity = "Low";
+                    let riskClass = "text-green-600";
+                    let recommendation = "No immediate action needed.";
+                    
+                    if (predictedWear > 5) {
+                        severity = "Moderate";
+                        riskClass = "text-yellow-600";
+                        recommendation = "Schedule inspection within 2 weeks.";
+                    }
+                    
+                    if (predictedWear > 7) {
+                        severity = "High";
+                        riskClass = "text-red-600";
+                        recommendation = "Immediate maintenance recommended!";
+                    }
+                    
+                    forecastDetails.innerHTML = `
+                        <div class="space-y-2">
+                            <p>Based on the selected conditions:</p>
+                            <ul class="list-disc ml-5 space-y-1">
+                                <li>Traffic Volume: ${trafficVolume}% (${trafficVolume < 40 ? 'Low' : trafficVolume < 70 ? 'Medium' : 'High'})</li>
+                                <li>Weather Severity: ${weatherSeverity}% (${weatherSeverity < 30 ? 'Clear' : weatherSeverity < 70 ? 'Moderate' : 'Severe'})</li>
+                            </ul>
+                            <p class="font-medium mt-3">Predicted Road Wear Index: <span class="${riskClass}">${predictedWear}/10</span> (${severity} Risk)</p>
+                            <p class="mt-2">Recommendation: ${recommendation}</p>
+                            <p class="mt-2 text-xs">Next significant threshold breach predicted in: ${Math.floor(Math.random() * 10 + 1)} days</p>
+                        </div>
+                    `;
+                    
+                    forecastResult.classList.remove('hidden');
+                    document.querySelector('.loading').style.display = 'none';
+                }, 1500);
+            });
+            
+            
+
+            // Apply Filters button
+            document.getElementById('applyFiltersBtn').addEventListener('click', () => {
+                document.querySelector('.loading').style.display = 'flex';
+                
+                const timeRange = document.getElementById('timeRangeFilter').value;
+                const roadType = document.getElementById('roadTypeFilter').value;
+                const vehicleType = document.getElementById('vehicleTypeFilter').value;
+                
+                setTimeout(() => {
+                    // Apply the filters (in a real app, this would query the backend)
+                    updateCharts();
+                    document.querySelector('.loading').style.display = 'none';
+                    
+                    // Show a notification
+                    const alertsList = document.getElementById('alertsList');
+                    const filterAlert = document.createElement('div');
+                    filterAlert.className = 'alert-item border-l-4 bg-blue-50 border-blue-300 p-4 rounded shadow-sm';
+                    filterAlert.innerHTML = `
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="bi bi-funnel-fill text-blue-500 text-xl"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm font-medium">Filters applied successfully</p>
+                                <p class="text-xs text-gray-500 mt-1">Time: ${timeRange}, Road: ${roadType}, Vehicle: ${vehicleType}</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    filterAlert.style.opacity = '0';
+                    if (alertsList.childNodes.length) {
+                        alertsList.insertBefore(filterAlert, alertsList.childNodes[0]);
+                    } else {
+                        alertsList.appendChild(filterAlert);
+                    }
+                    
+                    setTimeout(() => {
+                        filterAlert.style.transition = 'opacity 0.5s ease';
+                        filterAlert.style.opacity = '1';
+                    }, 10);
+                }, 1000);
+            });
+            
+        }
+        // Event listeners for date pickers
+    document.getElementById('datePicker').addEventListener('change', compareDates);
+    document.getElementById('yesterdayPicker').addEventListener('change', compareDates);
+
+    function compareDates() {
+        const todayDate = document.getElementById('datePicker').value;
+        const yesterdayDate = document.getElementById('yesterdayPicker').value;
+
+        if (todayDate && yesterdayDate) {
+            // Simulate fetching data for both selected dates
+            const todayData = getRoadWearData(todayDate); // Function to get road wear data for today
+            const yesterdayData = getRoadWearData(yesterdayDate); // Function for yesterday
+
+            // Now compare these data points and display
+            updateComparisonDisplay(todayData, yesterdayData);
+        }
+    }
+
+    function getRoadWearData(date) {
+        // Simulate road wear data based on the selected date (e.g., from an API or database)
+        return {
+            wear: Math.random() * 10, // Simulated wear index
+            trafficVolume: Math.random() * 1000,
+            weatherCondition: 'Clear', // Example weather condition
+        };
+    }
+
+    function updateComparisonDisplay(todayData, yesterdayData) {
+        // Update the wear display based on the comparison between today and yesterday
+        document.getElementById('wearValueToday').textContent = todayData.wear.toFixed(1);
+        document.getElementById('wearValueYesterday').textContent = yesterdayData.wear.toFixed(1);
+
+        // Update the comparison chart
+        updateWearComparisonChart(todayData.wear, yesterdayData.wear);
+    }
+
+    function updateWearComparisonChart(todayWear, yesterdayWear) {
+        // Update a chart showing wear comparison between today and yesterday
+        const comparisonChart = document.getElementById('wearComparisonChart').getContext('2d');
+        new Chart(comparisonChart, {
+            type: 'bar',
+            data: {
+                labels: ['Today', 'Yesterday'],
+                datasets: [{
+                    label: 'Road Wear Comparison',
+                    data: [todayWear, yesterdayWear],
+                    backgroundColor: ['rgba(54, 162, 235, 0.6)', 'rgba(255, 99, 132, 0.6)'],
+                    borderColor: ['rgb(54, 162, 235)', 'rgb(255, 99, 132)'],
+                    borderWidth: 1
+                }]
+            }
+        });
+    }
+  
+        
+    </script>
+</body>
+</html>  
