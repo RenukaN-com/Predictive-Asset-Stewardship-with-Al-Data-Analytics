@@ -2,6 +2,9 @@
 
 *Duration:* Aug 2024 - May 2025  
 
+## 🌐 Live Demo  
+🔗 **[View Live Dashboard](https://astreonai.vercel.app/)**  
+
 ## 📌 Project Description  
 - Developed an *AI-powered Road Wear Prediction Dashboard* using a *hybrid machine learning model*:  
   - *LSTM* for time-series traffic/environmental data.  
@@ -21,12 +24,13 @@
 - *Flask (Backend Development)*  
 - *Frontend:* HTML, JavaScript, Chart.js  
 - *API Integration*  
+- *Cloud Deployment:* Vercel, Render  
 
 ## 🚀 Achievements & Impact  
 - Designed a *scalable solution for predictive road maintenance*, reducing costs and enhancing road safety.  
+- *Deployed to cloud* — Frontend on Vercel, Backend on Render.  
 - Proposed *future enhancements*:  
   - IoT sensor integration  
-  - Cloud deployment  
   - GIS-based visualization  
 
 ---
