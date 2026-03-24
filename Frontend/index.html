@@ -6,6 +6,7 @@
     <title>Road Wear Prediction Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script.js"></script>
     <script src="wearMetrics.js"></script>  
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -563,6 +564,9 @@
     
 
     <script>
+        // Backend API base URL (update this after deploying to Render)
+        const API_BASE = "https://predictive-asset-backend.onrender.com";
+
         // Global variables to hold chart instances and data
         let wearChart, trafficChart, speedChart, weatherImpactChart, hourlyForecastChart, maintenanceHistoryChart, maintenanceTrendsChart;
         let threshold = 7.0; // Default threshold
